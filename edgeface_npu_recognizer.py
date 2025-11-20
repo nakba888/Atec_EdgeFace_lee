@@ -67,21 +67,21 @@ class EdgeFaceNPURecognizer:
         rgb_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
 
         # Convert to float and normalize to [0, 1] (as per calibration config: div 255.0)
-        img_float = rgb_img.astype(np.float32) / 255.0
+        # img_float = rgb_img.astype(np.float32) / 255.0
 
         # Normalize with mean=0.5, std=0.5 (as per calibration config)
         # normalized = (img / 255.0 - 0.5) / 0.5
-        img_normalized = (img_float - 0.5) / 0.5
+        # img_normalized = (img_float - 0.5) / 0.5
 
         # Transpose to CHW format (as per calibration config)
         # Shape: (H, W, C) -> (C, H, W)
-        chw_img = np.transpose(img_normalized, (2, 0, 1))
+        # chw_img = np.transpose(img_normalized, (2, 0, 1))
 
         # Add batch dimension: (C, H, W) -> (1, C, H, W)
-        input_tensor = np.expand_dims(chw_img, axis=0)
+        input_tensor = np.expand_dims(rgb_img, axis=0)
 
         # Convert to float32 for NPU
-        return input_tensor.astype(np.float32)
+        return input_tensor.astype(np.uint8)
 
     def extract_embedding(self, face_img: np.ndarray) -> np.ndarray:
         """
