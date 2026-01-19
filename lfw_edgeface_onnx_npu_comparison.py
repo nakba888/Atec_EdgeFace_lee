@@ -35,12 +35,12 @@ except ImportError:
 # ============================================================================
 
 # LFW 데이터셋 경로
-LFW_DIR = "/mnt/c/Users/Admin/Downloads/lfw-deepfunneled/lfw-deepfunneled"
+LFW_DIR = "/home/dxdemo/Downloads/lfw"
 
 # 모델 경로
 YUNET_CPU_MODEL = "face_alignment/models/face_detection_yunet_2023mar.onnx"
-EDGEFACE_ONNX_MODEL = "checkpoints/edgeface_xs_gamma_06.onnx"
-EDGEFACE_NPU_MODEL = "checkpoints/edgeface_xs_gamma_06.dxnn"
+EDGEFACE_ONNX_MODEL = "checkpoints/edgeface_s_gamma_05.onnx"
+EDGEFACE_NPU_MODEL = "checkpoints/edgeface_s_gamma_05.dxnn"
 
 # 샘플 수
 NUM_SAMPLES = 10
@@ -239,6 +239,7 @@ def main():
 
             # EdgeFace NPU 임베딩 추출
             emb_npu = edgeface_npu.extract_embedding(face_np)
+            
 
             # 코사인 유사도 계산
             cosine_sim = np.dot(emb_onnx, emb_npu)

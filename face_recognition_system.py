@@ -780,7 +780,7 @@ class FaceRecognitionSystem:
 
             # Text
             cv2.putText(frame, label, (x1, y1 - 5),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
 
             # Draw landmarks
             landmarks = det['landmarks']
