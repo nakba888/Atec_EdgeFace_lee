@@ -150,14 +150,14 @@ class FaceRecognitionJetsonGUI:
 
         # Similarity Threshold
         ttk.Label(control_frame, text="Threshold:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        threshold_spinbox = ttk.Spinbox(control_frame, from_=0.0, to=1.0, increment=0.05,
+        threshold_spinbox = tk.Spinbox(control_frame, from_=0.0, to=1.0, increment=0.05,
                                        textvariable=self.threshold_var, width=15)
         threshold_spinbox.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
 
         # Camera ID
         ttk.Label(control_frame, text="Camera ID:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        camera_spinbox = ttk.Spinbox(control_frame, from_=0, to=5, increment=1,
+        camera_spinbox = tk.Spinbox(control_frame, from_=0, to=5, increment=1,
                                      textvariable=self.camera_id_var, width=15)
         camera_spinbox.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
