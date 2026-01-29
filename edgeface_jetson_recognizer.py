@@ -7,6 +7,11 @@ Jetson Orin Nano용 TensorRT EdgeFace 얼굴 인식 모듈
 This module provides TensorRT-accelerated face recognition using EdgeFace model.
 Compatible interface with EdgeFaceNPURecognizer for easy switching.
 
+Supports:
+- TensorRT (Jetson Orin Nano)
+- PyTorch fallback (when TensorRT not available)
+- Works without PyCUDA (uses TensorRT native CUDA)
+
 Usage:
     from edgeface_jetson_recognizer import EdgeFaceJetsonRecognizer
     
@@ -21,27 +26,43 @@ import time
 from typing import Optional, Tuple, List
 
 # TensorRT imports
+TRT_AVAILABLE = False
+TRT_VERSION = None
+
 try:
     import tensorrt as trt
     TRT_AVAILABLE = True
     TRT_VERSION = trt.__version__
 except ImportError:
-    TRT_AVAILABLE = False
-    TRT_VERSION = None
-    print("⚠️ TensorRT를 가져올 수 없습니다. JetPack이 설치되어 있는지 확인하세요.")
+    pass  # TensorRT not available - will use PyTorch fallback
 
-# CUDA imports for memory management
+# Check for CUDA availability via different methods
+CUDA_AVAILABLE = False
+CUDA_METHOD = None
+
+# Method 1: Try torch.cuda first (most common)
+try:
+    import torch
+    if torch.cuda.is_available():
+        CUDA_AVAILABLE = True
+        CUDA_METHOD = 'torch'
+except ImportError:
+    pass
+
+# Method 2: Try PyCUDA (optional, for advanced memory management)
+PYCUDA_AVAILABLE = False
 try:
     import pycuda.driver as cuda
     import pycuda.autoinit
+    PYCUDA_AVAILABLE = True
     CUDA_AVAILABLE = True
+    CUDA_METHOD = 'pycuda'
 except ImportError:
-    CUDA_AVAILABLE = False
-    print("⚠️ PyCUDA를 가져올 수 없습니다. 'pip install pycuda' 로 설치하세요.")
+    pass  # PyCUDA not available - will use torch or numpy fallback
 
 
-class TensorRTEngine:
-    """TensorRT Engine wrapper for inference"""
+class TensorRTEngineNative:
+    """TensorRT Engine wrapper using native TensorRT CUDA (no PyCUDA required)"""
     
     def __init__(self, engine_path: str):
         """
@@ -52,9 +73,6 @@ class TensorRTEngine:
         """
         if not TRT_AVAILABLE:
             raise ImportError("TensorRT is not available. Please install JetPack.")
-        
-        if not CUDA_AVAILABLE:
-            raise ImportError("PyCUDA is not available. Please install pycuda.")
         
         if not os.path.exists(engine_path):
             raise FileNotFoundError(f"TensorRT engine not found: {engine_path}")
@@ -83,8 +101,11 @@ class TensorRTEngine:
         
         for i in range(self.engine.num_io_tensors):
             name = self.engine.get_tensor_name(i)
-            shape = self.engine.get_tensor_shape(name)
+            shape = list(self.engine.get_tensor_shape(name))
             mode = self.engine.get_tensor_mode(name)
+            
+            # Handle dynamic shapes (-1 -> 1)
+            shape = [1 if s == -1 else s for s in shape]
             
             if mode == trt.TensorIOMode.INPUT:
                 self.input_name = name
@@ -95,13 +116,134 @@ class TensorRTEngine:
                 self.output_shape = tuple(shape)
                 print(f"  Output: {name}, shape: {shape}")
         
-        # Allocate GPU memory
-        self._allocate_buffers()
+        # Set input shape for dynamic inputs
+        self.context.set_input_shape(self.input_name, self.input_shape)
+        
+        # Allocate buffers using torch.cuda (more compatible than PyCUDA)
+        self._allocate_buffers_torch()
         
         print(f"✅ TensorRT engine loaded successfully")
     
+    def _allocate_buffers_torch(self):
+        """Allocate GPU buffers using PyTorch CUDA"""
+        import torch
+        
+        # Calculate sizes
+        input_size = self.input_shape
+        output_size = self.output_shape
+        
+        # Allocate GPU tensors
+        self.input_tensor = torch.zeros(input_size, dtype=torch.float32, device='cuda')
+        self.output_tensor = torch.zeros(output_size, dtype=torch.float32, device='cuda')
+        
+        # Get raw pointers
+        self.d_input = self.input_tensor.data_ptr()
+        self.d_output = self.output_tensor.data_ptr()
+        
+        # CUDA stream
+        self.stream = torch.cuda.Stream()
+    
+    def infer(self, input_data: np.ndarray) -> np.ndarray:
+        """
+        Run inference on input data
+        
+        Args:
+            input_data: Input tensor (must match engine input shape)
+            
+        Returns:
+            Output tensor
+        """
+        import torch
+        
+        # Copy input to GPU tensor
+        input_tensor = torch.from_numpy(input_data.astype(np.float32)).cuda()
+        self.input_tensor.copy_(input_tensor)
+        
+        with torch.cuda.stream(self.stream):
+            # Set tensor addresses
+            self.context.set_tensor_address(self.input_name, self.d_input)
+            self.context.set_tensor_address(self.output_name, self.d_output)
+            
+            # Execute inference
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        
+        # Synchronize
+        self.stream.synchronize()
+        
+        # Copy output to numpy
+        return self.output_tensor.cpu().numpy()
+
+
+class TensorRTEnginePyCUDA:
+    """TensorRT Engine wrapper using PyCUDA (legacy, for advanced use)"""
+    
+    def __init__(self, engine_path: str):
+        """
+        Load TensorRT engine from file
+        
+        Args:
+            engine_path: Path to TensorRT engine file (.trt)
+        """
+        if not TRT_AVAILABLE:
+            raise ImportError("TensorRT is not available. Please install JetPack.")
+        
+        if not PYCUDA_AVAILABLE:
+            raise ImportError("PyCUDA is not available. Please install pycuda.")
+        
+        if not os.path.exists(engine_path):
+            raise FileNotFoundError(f"TensorRT engine not found: {engine_path}")
+        
+        self.engine_path = engine_path
+        self.logger = trt.Logger(trt.Logger.WARNING)
+        
+        # Load engine
+        print(f"Loading TensorRT engine (PyCUDA): {engine_path}")
+        runtime = trt.Runtime(self.logger)
+        
+        with open(engine_path, 'rb') as f:
+            self.engine = runtime.deserialize_cuda_engine(f.read())
+        
+        if self.engine is None:
+            raise RuntimeError(f"Failed to load TensorRT engine: {engine_path}")
+        
+        # Create execution context
+        self.context = self.engine.create_execution_context()
+        
+        # Get input/output info
+        self.input_name = None
+        self.output_name = None
+        self.input_shape = None
+        self.output_shape = None
+        
+        for i in range(self.engine.num_io_tensors):
+            name = self.engine.get_tensor_name(i)
+            shape = list(self.engine.get_tensor_shape(name))
+            mode = self.engine.get_tensor_mode(name)
+            
+            # Handle dynamic shapes (-1 -> 1)
+            shape = [1 if s == -1 else s for s in shape]
+            
+            if mode == trt.TensorIOMode.INPUT:
+                self.input_name = name
+                self.input_shape = tuple(shape)
+                print(f"  Input: {name}, shape: {shape}")
+            else:
+                self.output_name = name
+                self.output_shape = tuple(shape)
+                print(f"  Output: {name}, shape: {shape}")
+        
+        # Set input shape for dynamic inputs
+        self.context.set_input_shape(self.input_name, self.input_shape)
+        
+        # Allocate GPU memory
+        self._allocate_buffers()
+        
+        print(f"✅ TensorRT engine loaded successfully (PyCUDA)")
+    
     def _allocate_buffers(self):
         """Allocate GPU memory for input/output"""
+        import pycuda.driver as cuda
+        
         # Calculate buffer sizes
         input_size = int(np.prod(self.input_shape))
         output_size = int(np.prod(self.output_shape))
@@ -127,6 +269,8 @@ class TensorRTEngine:
         Returns:
             Output tensor
         """
+        import pycuda.driver as cuda
+        
         # Ensure input is contiguous and correct dtype
         input_data = np.ascontiguousarray(input_data.astype(np.float32))
         
@@ -163,6 +307,34 @@ class TensorRTEngine:
             pass
 
 
+def get_tensorrt_engine(engine_path: str):
+    """
+    Factory function to get the best available TensorRT engine wrapper
+    
+    Args:
+        engine_path: Path to TensorRT engine file
+        
+    Returns:
+        TensorRT engine instance (Native or PyCUDA based)
+    """
+    if not TRT_AVAILABLE:
+        raise ImportError("TensorRT is not available")
+    
+    # Prefer native torch-based engine (more compatible)
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return TensorRTEngineNative(engine_path)
+    except Exception as e:
+        print(f"Native TensorRT engine failed: {e}")
+    
+    # Fallback to PyCUDA
+    if PYCUDA_AVAILABLE:
+        return TensorRTEnginePyCUDA(engine_path)
+    
+    raise ImportError("No CUDA backend available. Install PyTorch with CUDA or PyCUDA.")
+
+
 class EdgeFaceJetsonRecognizer:
     """EdgeFace based face recognition module using TensorRT on Jetson"""
     
@@ -178,6 +350,7 @@ class EdgeFaceJetsonRecognizer:
         self.device = device
         self.model_name = model_name
         self.model_path = model_path
+        self.engine = None
         
         # Input size for EdgeFace
         self.input_size = (112, 112)
@@ -191,7 +364,7 @@ class EdgeFaceJetsonRecognizer:
                 raise ImportError("TensorRT를 사용할 수 없습니다. JetPack을 설치하세요.")
             
             print(f"EdgeFace Jetson: Loading TensorRT engine from {model_path}...")
-            self.engine = TensorRTEngine(model_path)
+            self.engine = get_tensorrt_engine(model_path)
             self.use_tensorrt = True
             print(f"✅ EdgeFace TensorRT model loaded: {model_name}")
             
@@ -338,9 +511,12 @@ def test_recognizer():
     print("=" * 60)
     print("EdgeFace Jetson Recognizer Test")
     print("=" * 60)
+    print(f"TensorRT Available: {TRT_AVAILABLE} (version: {TRT_VERSION})")
+    print(f"CUDA Available: {CUDA_AVAILABLE} (method: {CUDA_METHOD})")
+    print(f"PyCUDA Available: {PYCUDA_AVAILABLE}")
     
     # Test TensorRT if available
-    if os.path.exists(trt_engine_path):
+    if os.path.exists(trt_engine_path) and TRT_AVAILABLE:
         print(f"\n[TensorRT] Testing with {trt_engine_path}")
         try:
             recognizer_trt = EdgeFaceJetsonRecognizer(trt_engine_path)
@@ -367,9 +543,14 @@ def test_recognizer():
             
         except Exception as e:
             print(f"  ❌ TensorRT test failed: {e}")
+            import traceback
+            traceback.print_exc()
     else:
-        print(f"\n[TensorRT] Engine not found: {trt_engine_path}")
-        print("  Run: python onnx_to_tensorrt.py --input checkpoints/edgeface_xs_gamma_06.onnx")
+        print(f"\n[TensorRT] Engine not found or TensorRT not available")
+        if not TRT_AVAILABLE:
+            print("  TensorRT not installed")
+        else:
+            print(f"  Run: python onnx_to_tensorrt.py --input checkpoints/edgeface_xs_gamma_06.onnx")
     
     # Test PyTorch if available
     if os.path.exists(pytorch_model_path):

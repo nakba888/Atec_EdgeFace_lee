@@ -136,19 +136,33 @@ class TensorRTConverter:
                 logger.warning("INT8 requested but not supported on this platform")
             
             # Set optimization profile for dynamic shapes
-            if dynamic_shapes:
+            # Automatically detect dynamic shapes if not explicitly requested
+            is_dynamic = dynamic_shapes
+            if not is_dynamic:
+                for i in range(network.num_inputs):
+                    if network.get_input(i).shape[0] == -1:
+                        is_dynamic = True
+                        logger.info(f"Dynamic shape detected on input {i}, enabling optimization profile automatically.")
+                        break
+
+            if is_dynamic:
                 profile = builder.create_optimization_profile()
-                input_tensor = network.get_input(0)
-                input_name = input_tensor.name
+                for i in range(network.num_inputs):
+                    input_tensor = network.get_input(i)
+                    input_name = input_tensor.name
+                    
+                    # Get the shape, replacing dynamic -1 with reasonable defaults
+                    shape = list(input_tensor.shape)
+                    
+                    # EdgeFace input: (batch, 3, 112, 112)
+                    min_shape = [1 if s == -1 else s for s in shape]
+                    opt_shape = [1 if s == -1 else s for s in shape]
+                    max_shape = [max_batch_size if s == -1 else s for s in shape]
+                    
+                    profile.set_shape(input_name, tuple(min_shape), tuple(opt_shape), tuple(max_shape))
+                    logger.info(f"Profile for {input_name}: min={min_shape}, opt={opt_shape}, max={max_shape}")
                 
-                # EdgeFace input: (batch, 3, 112, 112)
-                min_shape = (1, 3, 112, 112)
-                opt_shape = (1, 3, 112, 112)
-                max_shape = (max_batch_size, 3, 112, 112)
-                
-                profile.set_shape(input_name, min_shape, opt_shape, max_shape)
                 config.add_optimization_profile(profile)
-                logger.info(f"Dynamic shapes enabled: min={min_shape}, opt={opt_shape}, max={max_shape}")
             
             # Build engine
             logger.info("Building TensorRT engine... (this may take a few minutes)")
@@ -279,8 +293,9 @@ def verify_engine(engine_path: str) -> bool:
         return False
     
     try:
-        logger = trt.Logger(trt.Logger.WARNING)
-        runtime = trt.Runtime(logger)
+        # User standard python logger for messages, and trt.Logger for TRT internal
+        trt_logger = trt.Logger(trt.Logger.WARNING)
+        runtime = trt.Runtime(trt_logger)
         
         with open(engine_path, 'rb') as f:
             engine = runtime.deserialize_cuda_engine(f.read())
@@ -290,9 +305,12 @@ def verify_engine(engine_path: str) -> bool:
             return False
         
         logger.info(f"Engine loaded successfully!")
-        logger.info(f"  Num bindings: {engine.num_io_tensors}")
         
-        for i in range(engine.num_io_tensors):
+        # In TRT 10+, use get_tensor_name
+        num_io = engine.num_io_tensors
+        logger.info(f"  Num bindings: {num_io}")
+        
+        for i in range(num_io):
             name = engine.get_tensor_name(i)
             shape = engine.get_tensor_shape(name)
             dtype = engine.get_tensor_dtype(name)
