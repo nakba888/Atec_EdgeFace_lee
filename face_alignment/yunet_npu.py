@@ -3,6 +3,8 @@ YuNet Face Detector with DeepX NPU Support
 DeepX NPU를 사용한 YuNet 얼굴 검출기
 """
 
+import os
+
 try:
     import cv2 as cv
 except ImportError:
@@ -21,13 +23,23 @@ except ImportError:
     print("PIL이 설치되지 않았습니다. pip install Pillow를 실행하세요.")
     Image = None
 
-try:
-    from dx_engine import InferenceEngine
-    DXENGINE_AVAILABLE = True
-except ImportError:
-    print("dx_engine을 가져올 수 없습니다. DeepX NPU SDK가 설치되어 있는지 확인하세요.")
-    DXENGINE_AVAILABLE = False
-    InferenceEngine = None
+# Check if we should even try to import dx_engine
+# Skip on Jetson (TensorRT environment) or if explicitly disabled
+_SKIP_NPU = os.environ.get('SKIP_NPU', '0') == '1'
+_IS_JETSON = os.path.exists('/etc/nv_tegra_release')
+
+DXENGINE_AVAILABLE = False
+InferenceEngine = None
+
+if not _SKIP_NPU and not _IS_JETSON:
+    try:
+        from dx_engine import InferenceEngine
+        DXENGINE_AVAILABLE = True
+    except ImportError:
+        print("dx_engine을 가져올 수 없습니다. DeepX NPU SDK가 설치되어 있는지 확인하세요.")
+    except Exception as e:
+        print(f"dx_engine import 중 오류 발생: {e}")
+
 
 import sys
 import os
