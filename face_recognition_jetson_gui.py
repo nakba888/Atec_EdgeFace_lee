@@ -12,12 +12,22 @@ Features:
 - Reference image management (Add/Remove)
 """
 
+# IMPORTANT: Set environment variables BEFORE importing any other modules
+# This prevents conflicts between PyTorch CUDA and Tkinter on Jetson
 import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["CUDA_MODULE_LOADING"] = "LAZY"
+
+# Now import tkinter BEFORE PyTorch
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox, simpledialog
+
+# Other imports
 import sys
 import cv2
 import numpy as np
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
 from PIL import Image, ImageTk
 import threading
 import time
@@ -26,9 +36,10 @@ from typing import Optional
 # Add face_alignment to path
 sys.path.insert(0, 'face_alignment')
 
-# Import Jetson system
+# Import Jetson system (this imports PyTorch)
 from face_recognition_jetson_system import FaceRecognitionJetsonSystem, JETSON_AVAILABLE
 from face_recognition_system import FaceAngleCalculator
+
 
 
 class FaceRecognitionJetsonGUI:
