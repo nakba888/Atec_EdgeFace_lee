@@ -578,49 +578,29 @@ class FaceRecognitionJetsonSystem:
         """Run face recognition on camera feed"""
         print(f"📹 Opening camera {camera_id}...")
         
-        # Pipelines to try in order
-
-        pipelines = [
-            # 1. Simple pipeline similar to what worked for the user in terminal
-            (f"v4l2src device=/dev/video{camera_id} ! "
-             "videoconvert ! video/x-raw, format=BGR ! appsink drop=1"),
-            
-            # 2. MJPG optimized pipeline (common for high-res USB cams)
-            (f"v4l2src device=/dev/video{camera_id} ! "
-             "image/jpeg, width=640, height=480, framerate=30/1 ! "
-             "jpegdec ! videoconvert ! video/x-raw, format=BGR ! appsink drop=1"),
-            
-            # 3. Standard raw pipeline
-            (f"v4l2src device=/dev/video{camera_id} ! "
-             "video/x-raw, width=640, height=480 ! "
-             "videoconvert ! video/x-raw, format=BGR ! appsink drop=1")
-        ]
+        # V4L2 backend with MJPG format - confirmed working on Jetson
+        cap = cv2.VideoCapture(f'/dev/video{camera_id}', cv2.CAP_V4L2)
         
-        cap = None
-        for i, pipeline in enumerate(pipelines):
-            print(f"🔗 Attempting pipeline {i+1}: {pipeline}")
-            cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
-            if cap.isOpened():
-                print(f"✅ Successfully opened with pipeline {i+1}")
-                break
-            cap.release()
-        
-        if not cap or not cap.isOpened():
-            print("⚠️ GStreamer pipelines failed, trying V4L2 backend...")
-            cap = cv2.VideoCapture(camera_id, cv2.CAP_V4L2)
-        
-        if not cap.isOpened():
-            print(f"❌ Cannot open camera {camera_id}")
-            return
-        
-        # Set camera properties if not using pipeline
-        if not isinstance(cap.get(cv2.CAP_PROP_BACKEND), str) or "GSTREAMER" not in cap.get(cv2.CAP_PROP_BACKEND).upper():
+        if cap.isOpened():
+            # Set MJPG format first (important for USB cameras)
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             cap.set(cv2.CAP_PROP_FPS, 30)
-            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+            
+            # Test if we can actually read a frame
+            ret, test_frame = cap.read()
+            if ret:
+                print(f"✅ Camera opened successfully with V4L2 backend")
+                print(f"   Resolution: {int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}")
+            else:
+                cap.release()
+                cap = None
         
-        print("✅ Camera initialized successfully")
+        if not cap or not cap.isOpened():
+            print(f"❌ Cannot open camera {camera_id}")
+            return
+        
         print("Controls:")
         print("  'q' - Quit")
         print("  't' - Toggle TensorRT/PyTorch")
@@ -630,6 +610,7 @@ class FaceRecognitionJetsonSystem:
         try:
             while True:
                 ret, frame = cap.read()
+
                 
                 if not ret:
                     print("❌ Failed to grab frame")
