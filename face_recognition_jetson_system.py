@@ -577,18 +577,50 @@ class FaceRecognitionJetsonSystem:
     def run_camera(self, camera_id: int = 0):
         """Run face recognition on camera feed"""
         print(f"📹 Opening camera {camera_id}...")
-        cap = cv2.VideoCapture(camera_id)
+        
+        # Pipelines to try in order
+
+        pipelines = [
+            # 1. Simple pipeline similar to what worked for the user in terminal
+            (f"v4l2src device=/dev/video{camera_id} ! "
+             "videoconvert ! video/x-raw, format=BGR ! appsink drop=1"),
+            
+            # 2. MJPG optimized pipeline (common for high-res USB cams)
+            (f"v4l2src device=/dev/video{camera_id} ! "
+             "image/jpeg, width=640, height=480, framerate=30/1 ! "
+             "jpegdec ! videoconvert ! video/x-raw, format=BGR ! appsink drop=1"),
+            
+            # 3. Standard raw pipeline
+            (f"v4l2src device=/dev/video{camera_id} ! "
+             "video/x-raw, width=640, height=480 ! "
+             "videoconvert ! video/x-raw, format=BGR ! appsink drop=1")
+        ]
+        
+        cap = None
+        for i, pipeline in enumerate(pipelines):
+            print(f"🔗 Attempting pipeline {i+1}: {pipeline}")
+            cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+            if cap.isOpened():
+                print(f"✅ Successfully opened with pipeline {i+1}")
+                break
+            cap.release()
+        
+        if not cap or not cap.isOpened():
+            print("⚠️ GStreamer pipelines failed, trying V4L2 backend...")
+            cap = cv2.VideoCapture(camera_id, cv2.CAP_V4L2)
         
         if not cap.isOpened():
             print(f"❌ Cannot open camera {camera_id}")
             return
         
-        # Set camera properties
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        cap.set(cv2.CAP_PROP_FPS, 30)
+        # Set camera properties if not using pipeline
+        if not isinstance(cap.get(cv2.CAP_PROP_BACKEND), str) or "GSTREAMER" not in cap.get(cv2.CAP_PROP_BACKEND).upper():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
         
-        print("✅ Camera opened successfully")
+        print("✅ Camera initialized successfully")
         print("Controls:")
         print("  'q' - Quit")
         print("  't' - Toggle TensorRT/PyTorch")
