@@ -277,13 +277,17 @@ class FaceRecognitionJetsonSystem:
             else:
                 print(f"⚠️ TensorRT engine not found, falling back to PyTorch")
                 self.use_tensorrt = False
-                self.recognizer = EdgeFaceRecognizer(model_path, model_name, self.device)
+                # Use 'cuda' for PyTorch (not 'jetson')
+                pytorch_device = 'cuda' if self.device == 'jetson' else self.device
+                self.recognizer = EdgeFaceRecognizer(model_path, model_name, pytorch_device)
         else:
             # Use PyTorch
             if not os.path.exists(model_path):
                 raise FileNotFoundError(f"Model not found: {model_path}")
             
-            self.recognizer = EdgeFaceRecognizer(model_path, model_name, self.device)
+            # Use 'cuda' for PyTorch (not 'jetson')
+            pytorch_device = 'cuda' if self.device == 'jetson' else self.device
+            self.recognizer = EdgeFaceRecognizer(model_path, model_name, pytorch_device)
             print(f"✅ Using PyTorch model: {model_path}")
     
     def switch_mode(self, use_tensorrt: bool) -> bool:
@@ -317,7 +321,9 @@ class FaceRecognitionJetsonSystem:
                     print(f"❌ PyTorch model not found: {pt_path}")
                     return False
                 
-                self.recognizer = EdgeFaceRecognizer(pt_path, 'edgeface_xs_gamma_06', self.device)
+                # Use 'cuda' for PyTorch (not 'jetson')
+                pytorch_device = 'cuda' if self.device == 'jetson' else self.device
+                self.recognizer = EdgeFaceRecognizer(pt_path, 'edgeface_xs_gamma_06', pytorch_device)
                 self.use_tensorrt = False
                 print("✅ Switched to PyTorch mode")
             
