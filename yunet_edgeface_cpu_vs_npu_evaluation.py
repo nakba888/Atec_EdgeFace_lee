@@ -69,14 +69,18 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"Using device: {device}")
 
 # LFW 데이터셋 경로 설정
-lfw_dir = "/mnt/c/Users/Admin/Downloads/lfw-deepfunneled/lfw-deepfunneled"
-pairs_file = "/mnt/c/Users/Admin/Downloads/lfw-deepfunneled/pairs.csv"
+lfw_dir = "/home/dxdemo/Downloads/lfw"
+pairs_file = "/home/dxdemo/Downloads/lfw/pairs.txt"
+
+# 만약 txt 파일이 없고 csv 파일이 있다면 변경
+if not os.path.exists(pairs_file) and os.path.exists("/home/dxdemo/Downloads/lfw/pairs.csv"):
+    pairs_file = "/home/dxdemo/Downloads/lfw/pairs.csv"
 
 # 모델 경로 설정
-YUNET_CPU_MODEL = "models/face_detection_yunet_2023mar.onnx"
-YUNET_NPU_MODEL = "models/yunet_npu/face_detection_yunet_2023mar.dxnn"
+YUNET_CPU_MODEL = "face_alignment/models/face_detection_yunet_2023mar.onnx"
+YUNET_NPU_MODEL = "face_alignment/models/face_detection_yunet_2023mar.dxnn"
 EDGEFACE_PYTORCH_MODEL = "checkpoints/edgeface_xs_gamma_06.pt"
-EDGEFACE_NPU_MODEL = "checkpoints/edgeface_npu/edgeface_xs_gamma_06.dxnn"
+EDGEFACE_NPU_MODEL = "checkpoints/edgeface_xs_gamma_06.dxnn"
 
 # 경로 확인
 if not os.path.exists(lfw_dir):
