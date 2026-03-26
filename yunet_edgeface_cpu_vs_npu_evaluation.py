@@ -107,44 +107,47 @@ def load_lfw_pairs(pairs_file: str, lfw_dir: str) -> List[Tuple]:
     """
     pairs = []
 
-    if pairs_file.endswith('.csv'):
-        with open(pairs_file, 'r') as f:
-            lines = f.readlines()[1:]  # 헤더 스킵
+    if not os.path.exists(pairs_file):
+        return pairs
 
-        for line in lines:
-            line = line.strip()
-            if not line:
+    is_csv = pairs_file.endswith('.csv')
+    with open(pairs_file, 'r') as f:
+        lines = f.readlines()
+        
+    start_idx = 1 # Skip header line for both csv and txt
+    for line in lines[start_idx:]:
+        line = line.strip()
+        if not line:
+            continue
+
+        # Split by comma if CSV, otherwise by whitespace (tabs/spaces)
+        parts = line.rstrip(',').split(',') if is_csv else line.split()
+
+        if len(parts) == 3:
+            # 같은 사람 쌍: Name, img1, img2
+            try:
+                person = parts[0]
+                img1_num = int(parts[1])
+                img2_num = int(parts[2])
+
+                img1_path = os.path.join(lfw_dir, person, f"{person}_{img1_num:04d}.jpg")
+                img2_path = os.path.join(lfw_dir, person, f"{person}_{img2_num:04d}.jpg")
+                pairs.append((True, img1_path, img2_path))
+            except ValueError:
                 continue
+        elif len(parts) == 4:
+            # 다른 사람 쌍: Name1, img1, Name2, img2
+            try:
+                person1 = parts[0]
+                img1_num = int(parts[1])
+                person2 = parts[2]
+                img2_num = int(parts[3])
 
-            if line.endswith(','):
-                # 같은 사람 쌍
-                parts = line.rstrip(',').split(',')
-                if len(parts) == 3:
-                    try:
-                        person = parts[0]
-                        img1_num = int(parts[1])
-                        img2_num = int(parts[2])
-
-                        img1_path = os.path.join(lfw_dir, person, f"{person}_{img1_num:04d}.jpg")
-                        img2_path = os.path.join(lfw_dir, person, f"{person}_{img2_num:04d}.jpg")
-                        pairs.append((True, img1_path, img2_path))
-                    except ValueError:
-                        continue
-            else:
-                # 다른 사람 쌍
-                parts = line.split(',')
-                if len(parts) == 4:
-                    try:
-                        person1 = parts[0]
-                        img1_num = int(parts[1])
-                        person2 = parts[2]
-                        img2_num = int(parts[3])
-
-                        img1_path = os.path.join(lfw_dir, person1, f"{person1}_{img1_num:04d}.jpg")
-                        img2_path = os.path.join(lfw_dir, person2, f"{person2}_{img2_num:04d}.jpg")
-                        pairs.append((False, img1_path, img2_path))
-                    except ValueError:
-                        continue
+                img1_path = os.path.join(lfw_dir, person1, f"{person1}_{img1_num:04d}.jpg")
+                img2_path = os.path.join(lfw_dir, person2, f"{person2}_{img2_num:04d}.jpg")
+                pairs.append((False, img1_path, img2_path))
+            except ValueError:
+                continue
 
     return pairs
 
