@@ -954,7 +954,10 @@ def main():
         yunet_npu_results = evaluate_yunet_detection(pairs, yunet_npu, "YuNet NPU", max_pairs=None)
 
         # 비교 시각화
-        plot_yunet_comparison(yunet_cpu_results, yunet_npu_results)
+        try:
+            plot_yunet_comparison(yunet_cpu_results, yunet_npu_results)
+        except Exception as e:
+            print(f"⚠ Skipping YuNet plot generation due to matplotlib error: {e}")
 
     # Landmark 비교
     if yunet_npu is not None:
@@ -963,7 +966,10 @@ def main():
         print("="*80)
 
         landmark_comparison = compare_landmarks(pairs, yunet_cpu, yunet_npu, max_pairs=100)
-        plot_landmark_comparison(landmark_comparison)
+        try:
+            plot_landmark_comparison(landmark_comparison)
+        except Exception as e:
+            print(f"⚠ Skipping landmark plot generation due to matplotlib error: {e}")
 
     # 임베딩 비교
     embedding_cpu_comparison = None
@@ -988,7 +994,10 @@ def main():
             )
 
         # 두 결과 비교 시각화
-        plot_embedding_comparison(embedding_cpu_comparison, embedding_npu_comparison)
+        try:
+            plot_embedding_comparison(embedding_cpu_comparison, embedding_npu_comparison)
+        except Exception as e:
+            print(f"⚠ Skipping embedding plot generation due to matplotlib error: {e}")
 
     # End-to-End 파이프라인 평가
     print("\n" + "="*80)
@@ -1051,8 +1060,11 @@ def main():
         print("\nComparison saved to: pipeline_comparison.csv")
 
         # 시각화
-        plot_roc_comparison(pipeline_results)
-        plot_metrics_comparison(pipeline_results)
+        try:
+            plot_roc_comparison(pipeline_results)
+            plot_metrics_comparison(pipeline_results)
+        except Exception as e:
+            print(f"⚠ Skipping ROC/Metrics plot generation due to matplotlib error: {e}")
 
     print("\n" + "="*80)
     print("Evaluation Complete!")
