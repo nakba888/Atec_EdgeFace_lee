@@ -149,6 +149,36 @@ class EdgeFaceNPURecognizer:
 
         return embedding
 
+    def extract_embedding_timed(self, face_img: np.ndarray) -> tuple:
+        """
+        Extract embedding and return pure inference time
+        Returns: (embedding_vector, pure_inference_time_seconds)
+        """
+        import time
+        input_tensor = self._preprocess_image(face_img)
+        input_tensor = np.ascontiguousarray(input_tensor)
+
+        try:
+            start_time = time.perf_counter()
+            self.inference_engine.run(input_tensor)
+            outputs = self.inference_engine.get_all_task_outputs()
+            pure_inference_time = time.perf_counter() - start_time
+        except Exception as e:
+            print(f"EdgeFace NPU inference error: {e}")
+            raise
+
+        if len(outputs) < 2:
+            raise RuntimeError(f"Expected at least 2 outputs, got {len(outputs)}")
+
+        embedding_output = outputs[1]
+        if isinstance(embedding_output, list):
+            embedding_output = embedding_output[0]
+        
+        embedding = embedding_output.flatten()
+        embedding = embedding / np.linalg.norm(embedding)
+
+        return embedding, pure_inference_time
+
     def extract_embeddings_batch(self, face_imgs: list) -> list:
         """
         Extract face embeddings from multiple aligned face images

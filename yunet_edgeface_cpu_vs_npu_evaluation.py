@@ -193,6 +193,27 @@ def extract_embedding_pytorch(face_img: np.ndarray, model: torch.nn.Module, devi
 
     return embedding
 
+def extract_embedding_pytorch_timed(face_img: np.ndarray, model: torch.nn.Module, device: str) -> Tuple[np.ndarray, float]:
+    import time
+    if face_img.shape[:2] != (112, 112):
+        face_img = cv2.resize(face_img, (112, 112))
+    img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+    img = np.transpose(img, (2, 0, 1))
+    img_tensor = torch.from_numpy(img).unsqueeze(0).float().to(device)
+    img_tensor.div_(255).sub_(0.5).div_(0.5)
+
+    try:
+        start_time = time.perf_counter()
+        with torch.no_grad():
+            embedding = model(img_tensor).cpu().numpy().flatten()
+        pure_time = time.perf_counter() - start_time
+    except Exception as e:
+        print(f"EdgeFace PyTorch inference error: {e}")
+        raise
+
+    embedding = embedding / np.linalg.norm(embedding)
+    return embedding, pure_time
+
 
 def extract_embedding_npu(face_img: np.ndarray, recognizer) -> np.ndarray:
     """
@@ -411,6 +432,8 @@ def compare_embeddings(pairs: List[Tuple], detector, edgeface_pytorch, edgeface_
         'l2_distances': [],  # L2 distance
         'pytorch_times': [],
         'npu_times': [],
+        'pytorch_pure_times': [],
+        'npu_pure_times': [],
         'pytorch_embeddings': [],  # Store embeddings for distribution analysis
         'npu_embeddings': [],
         'valid_pairs': 0
@@ -438,17 +461,28 @@ def compare_embeddings(pairs: List[Tuple], detector, edgeface_pytorch, edgeface_
                 face_np = cv2.cvtColor(face_np, cv2.COLOR_RGB2BGR)
 
                 # Extract PyTorch embedding
-                start_time = time.time()
-                emb_pytorch = extract_embedding_pytorch(face_np, edgeface_pytorch, device)
-                pytorch_time = time.time() - start_time
+                start_time = time.perf_counter()
+                emb_pytorch, pure_pt = extract_embedding_pytorch_timed(face_np, edgeface_pytorch, device)
+                pytorch_time = time.perf_counter() - start_time
                 results['pytorch_times'].append(pytorch_time)
+                results['pytorch_pure_times'].append(pure_pt)
                 results['pytorch_embeddings'].append(emb_pytorch)
 
                 # Extract NPU embedding
-                start_time = time.time()
-                emb_npu = extract_embedding_npu(face_np, edgeface_npu)
-                npu_time = time.time() - start_time
+                start_time = time.perf_counter()
+                try:
+                    if hasattr(edgeface_npu, 'extract_embedding_timed'):
+                        emb_npu, pure_npu = edgeface_npu.extract_embedding_timed(face_np)
+                    else:
+                        emb_npu = extract_embedding_npu(face_np, edgeface_npu)
+                        pure_npu = 0.0
+                except:
+                    emb_npu = extract_embedding_npu(face_np, edgeface_npu)
+                    pure_npu = 0.0
+
+                npu_time = time.perf_counter() - start_time
                 results['npu_times'].append(npu_time)
+                results['npu_pure_times'].append(pure_npu)
                 results['npu_embeddings'].append(emb_npu)
 
                 # Compare embeddings
@@ -474,6 +508,8 @@ def compare_embeddings(pairs: List[Tuple], detector, edgeface_pytorch, edgeface_
         results['avg_l2_distance'] = np.mean(results['l2_distances'])
         results['avg_pytorch_time'] = np.mean(results['pytorch_times'])
         results['avg_npu_time'] = np.mean(results['npu_times'])
+        results['avg_pytorch_pure_time'] = np.mean(results['pytorch_pure_times']) if results.get('pytorch_pure_times') else 0
+        results['avg_npu_pure_time'] = np.mean(results['npu_pure_times']) if results.get('npu_pure_times') else 0
 
     print(f"\nEmbedding Comparison Results ({detector_name}):")
     print(f"  Valid pairs: {results['valid_pairs']}")
@@ -481,8 +517,8 @@ def compare_embeddings(pairs: List[Tuple], detector, edgeface_pytorch, edgeface_
         print(f"  Avg cosine similarity: {results['avg_cosine_similarity']:.4f}")
         print(f"  Min cosine similarity: {results['min_cosine_similarity']:.4f}")
         print(f"  Avg L2 distance: {results['avg_l2_distance']:.4f}")
-        print(f"  Avg PyTorch time: {results['avg_pytorch_time']:.4f}s")
-        print(f"  Avg NPU time: {results['avg_npu_time']:.4f}s")
+        print(f"  Avg PyTorch total time: {results['avg_pytorch_time']:.4f}s (Pure Inference: {results['avg_pytorch_pure_time']:.4f}s)")
+        print(f"  Avg NPU total time: {results['avg_npu_time']:.4f}s (Pure Inference: {results['avg_npu_pure_time']:.4f}s)")
 
     return results
 
