@@ -1,0 +1,38 @@
+======================================================
+YuNet Face Detection Outputs: FP32 vs INT8 on lena.jpg
+======================================================
+
+1. FP32 Model (yunet_fp32.onnx) Output:
+----------------------------------------
+- Input image shape: 512x512
+- Face detected: 1
+- Confidence score: 0.908979
+- Bounding Box [x, y, w, h]: [207, 182, 145, 206]
+- Landmarks (5 points):
+  * Left Eye: [271, 269]
+  * Right Eye: [328, 276]
+  * Nose: [309, 312]
+  * Left Mouth Corner: [270, 342]
+  * Right Mouth Corner: [311, 348]
+- Output Image: result_yunet_fp32_lena.jpg
+
+2. INT8 Model (yunet_int8.onnx) Output:
+----------------------------------------
+- Input image shape: 512x512
+- Face detected: 1
+- Confidence score: 0.910881
+- Bounding Box [x, y, w, h]: [206, 179, 149, 211]
+- Landmarks (5 points):
+  * Left Eye: [271, 268]
+  * Right Eye: [328, 275]
+  * Nose: [310, 312]
+  * Left Mouth Corner: [270, 342]
+  * Right Mouth Corner: [312, 349]
+- Output Image: result_yunet_int8_lena.jpg
+
+3. Summary Comparison:
+-----------------------
+- Confidence difference: +0.001902 (+0.21%) for INT8
+- Bounding box difference: 1 to 5 pixels shift.
+- Landmark points difference: 0 to 1 pixel shift.
+- The two models produce virtually identical face detection results on this image, proving that the INT8 quantized model maintains high detection quality.

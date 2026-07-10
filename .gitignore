@@ -10,4 +10,20 @@ validation_ijbs
 result
 scripts/run_debug*
 .DS_Store
-npu_calibraion/*outputcaptured_references/
+
+# Data and Models
+lfw_dataset/
+*.pt
+*.onnx
+*.dxnn
+*.zip
+
+# Generated results & analysis
+alignment_results/
+captured_references/
+npu_calibration/calibration_dataset/
+npu_calibration/*_output/
+test01/lfw_outputs/
+test01/comparison/
+test01/result_*.jpg
+test01/lena_detected.jpg
