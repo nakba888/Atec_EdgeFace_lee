@@ -39,7 +39,7 @@ Atec_EdgeFace_lee/
 ├── face_recognition_system.py          # 통합 얼굴 인식 파이프라인 (NPU 지원)
 ├── face_recognition_gui.py             # NPU 장치 선택을 지원하는 GUI 어플리케이션
 ├── convert_edgeface_s_to_dxnn.py       # PyTorch -> ONNX -> DXNN 변환 및 컴파일 가이드
-├── test_npu_models.py                  # 개별 NPU 모델 (.dxnn) 추론 테스트 스크립트
+├── test_npu_inference.py               # 개별 NPU 모델 (.dxnn) 추론 테스트 스크립트
 └── test01/
     ├── compare_fp32_int8.py            # FP32 vs INT8 모델 성능 및 수치 분석 스크립트
     └── process_lfw_int8.py             # LFW 데이터셋 샘플을 이용한 INT8 모델 검증
@@ -121,4 +121,4 @@ NPU SDK 환경에서 구동하기 전 검증해야 할 필수 사항들입니다
   - 카메라 디바이스 리스트 확인: `v4l2-ctl --list-devices`
   - 권한 접근 확인: `ls -l /dev/video*`
 - **최종 통합 테스트**:
-  - `python3 test_npu_models.py` 실행 시 오류 없이 입출력 텐서 모양 및 추론 결과가 출력되는지 검증.
+  - `python3 test_npu_inference.py` 실행 시 오류 없이 입출력 텐서 모양 및 추론 결과가 출력되는지 검증.

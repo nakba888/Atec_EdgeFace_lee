@@ -40,6 +40,7 @@ def test_yunet():
     test_image_paths = [
         "/home/dxdemo/Atec_EdgeFace/npu_calibration/calibration_output/calibration_dataset/calib_0000.jpg",
         "npu_calibration/calibration_output/calibration_dataset/calib_0000.jpg",
+        "test01/lena.jpg",
     ]
 
     test_image_path = None
@@ -197,6 +198,7 @@ def test_edgeface():
         "/home/dxdemo/Atec_EdgeFace/npu_calibration/edgeface_calibration_output/aligned_faces/calib_0000.jpg",
         "npu_calibration/edgeface_calibration_output/aligned_faces/calib_0000.jpg",
         "npu_calibration/calibration_output/calibration_dataset/calib_0000.jpg",
+        "test01/lena.jpg",
     ]
 
     test_image_path = None

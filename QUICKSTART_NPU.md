@@ -30,7 +30,7 @@ pip install opencv-python numpy pillow torch
 
 ```bash
 # NPU 모델 테스트
-python test_npu_models.py
+python test_npu_inference.py
 ```
 
 ### 4단계: GUI 실행
@@ -51,7 +51,7 @@ GUI에서:
 - [ ] DeepX NPU SDK 설치됨
 - [ ] `face_detection_yunet_2023mar.dxnn` 파일 존재
 - [ ] `edgeface_xs_gamma_06.dxnn` 파일 존재
-- [ ] `test_npu_models.py` 정상 실행
+- [ ] `test_npu_inference.py` 정상 실행
 - [ ] 카메라 접근 권한 확인 (`/dev/video*`)
 
 ## 🔍 문제 발생 시
@@ -82,7 +82,7 @@ ls -l /dev/video*
 
 ## 🎯 예상 동작
 
-### test_npu_models.py 성공 예시:
+### test_npu_inference.py 성공 예시:
 
 ```
 Testing YuNet NPU Model
@@ -132,7 +132,7 @@ Raspberry Pi 5 기준
 출력 형식 확인이 필요한 경우:
 
 ```python
-# test_npu_models.py 수정
+# test_npu_inference.py 수정
 # 더 상세한 출력 정보 확인
 ```
 
@@ -144,7 +144,7 @@ YuNet 출력이 예상과 다른 경우:
 ## 📞 지원
 
 문제가 해결되지 않으면:
-1. `test_npu_models.py` 출력 결과 확인
+1. `test_npu_inference.py` 출력 결과 확인
 2. 모델 파일 크기/무결성 확인
 3. NPU 드라이버 로그 확인
 4. DeepX 공식 문서 참조

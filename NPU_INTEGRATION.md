@@ -39,7 +39,7 @@ EdgeFace/
 ├── checkpoints/
 │   ├── edgeface_xs_gamma_06.pt         # PyTorch model
 │   └── edgeface_xs_gamma_06.dxnn       # NPU model
-└── test_npu_models.py                  # NPU model testing script
+└── test_npu_inference.py               # NPU model testing script
 ```
 
 ## 사전 요구사항
@@ -165,7 +165,7 @@ python3 test_npu_full_system.py
 
 ```bash
 # YuNet NPU 모델만 테스트
-python test_npu_models.py
+python test_npu_inference.py
 ```
 
 이 스크립트는:
@@ -291,7 +291,7 @@ YuNet NPU의 출력 디코딩은 다음과 같은 형식을 가정합니다:
 
 임베디드 보드에서 실행:
 ```bash
-python test_npu_models.py
+python test_npu_inference.py
 ```
 
 출력 예시:
@@ -342,7 +342,7 @@ def _decode_outputs(self, outputs, scale_x, scale_y):
 
 **느린 추론 속도:**
 - NPU 드라이버가 올바르게 설치되었는지 확인
-- `test_npu_models.py`로 추론 시간 측정
+- `test_npu_inference.py`로 추론 시간 측정
 - calibration 설정 확인
 
 **메모리 부족:**
@@ -366,7 +366,7 @@ def _decode_outputs(self, outputs, scale_x, scale_y):
 
 3. ✅ 테스트 스크립트 실행
    ```bash
-   python test_npu_models.py
+   python test_npu_inference.py
    ```
 
 4. ✅ GUI 테스트
