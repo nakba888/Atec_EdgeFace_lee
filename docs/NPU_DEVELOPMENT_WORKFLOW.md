@@ -218,3 +218,19 @@ if __name__ == "__main__":
    - `ie.run()`을 수행할 때 입력 데이터 numpy array가 메모리에 연속적으로 배치되지 않으면 경고가 뜰 수 있으므로, 반드시 `np.ascontiguousarray()`를 통과시킨 데이터를 입력해 주세요.
 3. **양자화 후 정밀도 저하가 심할 때**:
    - Calibration 이미지 수량을 200장 이상으로 확대해 보거나, 정규화 공식(`mean`, `std`)이 PyTorch 학습 시 코드와 완전히 일치하는지 Config JSON 설정을 대조해 보세요.
+
+---
+
+## 🔬 정합도(Cosine Similarity) 트러블슈팅 및 98.78% 달성 규격
+
+DeepX NPU(`.dxnn`)와 PyTorch(`.pt`) 간의 검증 과정에서 정합도가 저하(`39.25% ~ 69.67%`)되던 원인을 분석하고, 최종적으로 **98.78% (`0.987844`)** 의 완벽한 일치율을 달성한 핵심 기술 규격입니다:
+
+1. **전처리 1회 수행 원칙 (2중 정규화 금지)**:
+   - 컴파일 시 `calibration_config.json`에 `swap_rb: true` 및 `mean/std` 정규화가 내장된 모델의 경우, 파이썬 코드(`step4`, `step5`)에서 중복 정규화나 `BGR -> RGB` 스왑을 추가로 진행하지 말고 `uint8` 원본 배열 형태로 전달해야 합니다.
+2. **입력 텐서 메모리 레이아웃 (`NHWC uint8`)**:
+   - DeepX NPU는 하드웨어 최적화를 위해 입력을 **NHWC(Channel-Last, `1, 112, 112, 3`)** 형태로 컴파일하므로, 파이썬에서 `np.transpose(CHW)`를 적용하면 채널 바이트가 3등분으로 뒤섞여 오작동합니다. 반드시 `np.expand_dims(rgb_img, axis=0).astype(np.uint8)` (`NHWC`) 형태로 주입해야 합니다.
+3. **안면 인식 전용 정렬 크롭 이미지(`Aligned Face`) 사용**:
+   - 일반 비정렬 사진(`lena.jpg`)을 억지 축소하면 눈/코/입 비율이 깨져 양자화 클리핑 오차(94.32%)가 발생합니다. 반드시 눈/코/입 좌표가 112x112 정중앙에 정렬된 안면 인식 전용 이미지(`npu_workflow_demo/test_images/aligned_sample_*.jpg`)를 주입해야 **98.78%** 정합도가 발현됩니다.
+
+👉 **상세 분석 및 이슈 해결 과정 총정리 보고서:** [NPU_TROUBLESHOOTING_AND_PRECISION_ANALYSIS.md](file:///home/jarvis/jarvis/Atec_EdgeFace_lee/npu_workflow_demo/NPU_TROUBLESHOOTING_AND_PRECISION_ANALYSIS.md)
+
