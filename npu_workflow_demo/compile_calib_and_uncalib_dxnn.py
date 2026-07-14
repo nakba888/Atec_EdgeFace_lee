@@ -24,15 +24,34 @@ os.makedirs(models_dir, exist_ok=True)
 
 
 def check_compiler_exists():
-    """DeepX NPU 컴파일러(dx_compiler 또는 dx-com) 존재 여부 체크"""
+    """DeepX NPU 컴파일러(dx_compiler 또는 dx-com) 존재 여부 체크 (라즈베리파이 dx-all-suite 포함)"""
+    # 1. PATH에서 먼저 검색
     for cmd in ["dx_compiler", "dx-com", "dx-compiler"]:
         path = shutil.which(cmd)
         if path:
             return cmd, path
+            
+    # 2. 라즈베리파이 dxdemo dx-all-suite 및 사용자 로컬 경로 자동 탐색
+    custom_paths = [
+        "/home/dxdemo/dx-all-suite/dx-compiler/bin/dx_compiler",
+        "/home/dxdemo/dx-all-suite/dx-compiler/bin/dx-com",
+        "/home/dxdemo/dx-all-suite/bin/dx-com",
+        "/home/dxdemo/dx-all-suite/dx-compiler/dx_compiler",
+        "/home/dxdemo/dx-all-suite/dx-compiler/dx-com",
+        "/home/dxdemo/.local/bin/dx-com",
+        "/home/dxdemo/.local/bin/dx_compiler",
+        "/usr/local/bin/dx-com",
+        "/usr/local/bin/dx_compiler"
+    ]
+    for abs_path in custom_paths:
+        if os.path.exists(abs_path) and os.access(abs_path, os.X_OK):
+            cmd_name = "dx_compiler" if "dx_compiler" in abs_path else "dx-com"
+            return cmd_name, abs_path
+            
     return None, None
 
 
-def run_or_print_compile(compiler_cmd, onnx_path, config_path, dxnn_output, version_name):
+def run_or_print_compile(compiler_cmd, compiler_path, onnx_path, config_path, dxnn_output, version_name):
     """컴파일러가 있으면 즉시 실행, 없으면 과거 convert_edgeface처럼 수동 명령어 출력"""
     print("\n" + "-" * 78)
     print(f" 🔹 [{version_name}] DXNN 컴파일 작업 정보")
@@ -51,11 +70,11 @@ def run_or_print_compile(compiler_cmd, onnx_path, config_path, dxnn_output, vers
         print(f"      먼저 `step2_prepare_calibration.py` 또는 `step2_prepare_uncalibrated_config.py`를 실행하세요.")
         return False
 
-    if compiler_cmd:
-        print(f"\n 🚀 NPU 컴파일러({compiler_cmd}) 감지됨! 자동 컴파일을 시작합니다...")
+    if compiler_cmd and compiler_path:
+        print(f"\n 🚀 NPU 컴파일러({compiler_cmd} @ {compiler_path}) 감지됨! 자동 컴파일을 시작합니다...")
         if compiler_cmd == "dx_compiler":
             cmd_list = [
-                compiler_cmd,
+                compiler_path,
                 "--model", onnx_path,
                 "--config", config_path,
                 "--output", dxnn_output,
@@ -64,7 +83,7 @@ def run_or_print_compile(compiler_cmd, onnx_path, config_path, dxnn_output, vers
             ]
         else: # dx-com
             cmd_list = [
-                compiler_cmd,
+                compiler_path,
                 "-m", onnx_path,
                 "-c", config_path,
                 "-o", dxnn_output
@@ -93,7 +112,7 @@ def main():
     print("=" * 78)
 
     compiler_cmd, compiler_path = check_compiler_exists()
-    if compiler_cmd:
+    if compiler_cmd and compiler_path:
         print(f" ✅ 시스템 컴파일러 감지: {compiler_cmd} ({compiler_path})")
     else:
         print(" ℹ️ DeepX NPU 컴파일러 미감지 (수동 명령어 출력 모드로 작동합니다)")
@@ -113,7 +132,7 @@ def main():
             pass
     calib_dxnn = os.path.join(models_dir, "edgeface_xs_gamma_06.dxnn")
     run_or_print_compile(
-        compiler_cmd, onnx_path, calib_config, calib_dxnn, 
+        compiler_cmd, compiler_path, onnx_path, calib_config, calib_dxnn, 
         version_name="🟢 정식 캘리브레이션 버전 (Calibrated)"
     )
 
@@ -131,7 +150,7 @@ def main():
             pass
 
     run_or_print_compile(
-        compiler_cmd, onnx_path, uncalib_config, uncalib_dxnn, 
+        compiler_cmd, compiler_path, onnx_path, uncalib_config, uncalib_dxnn, 
         version_name="🔴 비캘리브레이션 버전 (Uncalibrated)"
     )
 
