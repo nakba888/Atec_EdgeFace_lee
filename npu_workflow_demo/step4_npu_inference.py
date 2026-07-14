@@ -40,21 +40,19 @@ def run_inference(model_path, image_path):
         print(f"❌ 엔진 로드 실패: {e}")
         return
 
-    # 2. 이미지 읽기 및 크기 리사이징
+    # 2. 이미지 읽기 및 크기 리사이징 (112x112)
     print(f"\n2. 테스트 이미지 전처리: {image_path}...")
     img = cv2.imread(image_path)
     resized = cv2.resize(img, (112, 112))
     
-    # BGR -> RGB 변환
+    # BGR -> RGB 변환 (기존 edgeface_npu_recognizer.py 호환 규격)
     rgb_img = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
     
-    # 3. float32 정규화 및 HWC -> CHW 포맷 변환 (기존 checkpoints/edgeface_xs_gamma_06.dxnn 호환 규격)
-    float_img = rgb_img.astype(np.float32) / 255.0
-    normalized = (float_img - 0.5) / 0.5
-    chw = np.transpose(normalized, (2, 0, 1))
-    input_tensor = np.expand_dims(chw, axis=0).astype(np.float32)
+    # 3. NHWC (HWC) 포맷 및 uint8 주입 (DeepX NPU 컴파일 모델의 기본 기대 형상)
+    # NPU 컴파일 시 정규화(mean/std)가 내부 하드웨어 레이어로 삽입되었으며, shape은 (1, 112, 112, 3)을 기대합니다.
+    input_tensor = np.expand_dims(rgb_img, axis=0).astype(np.uint8)
     
-    # NPU 연산 가속을 위해 연속 메모리(C-contiguous) 형식으로 보정
+    # NPU 연산 가속 및 안전성을 위해 연속 메모리(C-contiguous) 보정
     input_tensor = np.ascontiguousarray(input_tensor)
 
     # 4. NPU 추론 실행

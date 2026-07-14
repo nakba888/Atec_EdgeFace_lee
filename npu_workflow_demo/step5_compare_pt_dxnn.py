@@ -52,11 +52,10 @@ def get_npu_embedding(dxnn_path, rgb_img):
     print(f"2. DeepX NPU 모델(DXNN) 로드: {dxnn_path}...")
     ie = InferenceEngine(dxnn_path)
     
-    # 기존 checkpoints/edgeface_xs_gamma_06.dxnn 컴파일 설정과 완벽 일치하는 float32 정규화 입력 방식
-    float_img = rgb_img.astype(np.float32) / 255.0
-    normalized = (float_img - 0.5) / 0.5
-    chw = np.transpose(normalized, (2, 0, 1))
-    input_tensor = np.expand_dims(chw, axis=0).astype(np.float32)
+    # 기존 검증 완료된 edgeface_npu_recognizer.py 와 100% 동일한 전처리 규격
+    # NPU 컴파일 시 정규화(mean/std)와 CHW 내부 변환이 포함되어 있으므로, 
+    # 파이썬에서는 transpose나 float32 정규화 없이 NHWC (1, 112, 112, 3) 형태의 RGB uint8 원본을 전달합니다.
+    input_tensor = np.expand_dims(rgb_img, axis=0).astype(np.uint8)
     input_tensor = np.ascontiguousarray(input_tensor)
     
     ie.run(input_tensor)
