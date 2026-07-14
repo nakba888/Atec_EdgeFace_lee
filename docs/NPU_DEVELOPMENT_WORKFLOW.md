@@ -190,8 +190,14 @@ def run_npu_inference():
     outputs = ie.get_all_task_outputs()
     print(f"받은 출력 텐서 수: {len(outputs)}")
     
-    # 첫 번째 출력 텐서 형태 확인 (EdgeFace 기준 512차원 특징 임베딩)
-    embedding = outputs[0]
+    # ⚠️ 중요: 모델 컴파일 결과에 따라 추출하려는 출력의 인덱스가 다릅니다!
+    # EdgeFace 모델의 경우 outputs[1]이 실제 512차원 얼굴 특징 임베딩입니다.
+    # (outputs[0]은 모델 변환 시 생성된 다른 보조 텐서입니다.)
+    if len(outputs) >= 2:
+        embedding = outputs[1]
+    else:
+        embedding = outputs[0]
+        
     if isinstance(embedding, list):
         embedding = embedding[0]  # 리스트 래퍼 제거
         
