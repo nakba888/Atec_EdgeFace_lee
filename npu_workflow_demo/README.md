@@ -25,6 +25,7 @@ graph TD
 npu_workflow_demo/
 ├── step1_pytorch_to_onnx.py        # [Step 1] PyTorch(.pt) -> ONNX(.onnx) 변환 스크립트
 ├── step2_prepare_calibration.py    # [Step 2] INT8 양자화 보정용 JSON 설정 빌더
+├── step3_test_without_calibration.py # [Step 3] 캘리브레이션 없이 PyTorch & ONNX 직접 추론 (No-Calib)
 ├── step4_npu_inference.py          # [Step 4] NPU SDK(dx_engine) 단독 구동 및 추론 테스트
 ├── step5_compare_pt_dxnn.py        # [Step 5] PyTorch(FP32) vs NPU(INT8) 정밀도 비교 (98.78%)
 ├── NPU_TROUBLESHOOTING_AND_PRECISION_ANALYSIS.md # 정밀도 4대 이슈 및 해결 과정 상세 보고서
@@ -74,6 +75,22 @@ dx-com -m checkpoints/edgeface_xs_gamma_06.onnx \
   2. **⚠️ 캘리브레이션 데이터셋 정합성 (`Face Alignment Mandatory`)**:
      INT8 양자화 범위(`Clipping Bound`)는 캘리브레이션 이미지들의 활성화 값(`Activation`) 분포를 기준으로 정해집니다.
      > 👉 **반드시 안면 인식 전용으로 눈/코/입이 정렬(`Aligned`)된 112x112 크롭 얼굴 이미지 100~500장을 사용하십시오!** 일반 비정렬 사진(`lena.jpg`)으로 보정/테스트하면 양자화 클리핑 오차가 발생해 정밀도가 4~5% 하락합니다.
+
+---
+
+### 🔹 [Step 3] 캘리브레이션 없는 순수 FP32 모델 직접 추론 및 검증 (`step3_test_without_calibration.py`)
+
+INT8 캘리브레이션이나 NPU 컴파일을 거치지 않고, 부동소수점(`FP32`) 상태의 PyTorch 모델(`.pt`)과 ONNX 모델(`.onnx`)이 100% 무차실로 변환되었는지 검증하고 PC/서버(CPU/GPU)에서 안면 인식을 가동합니다.
+
+```bash
+# 실행 명령어 (CPU/GPU 일반 환경, 또는 라즈베리파이에서 실행 가능)
+python3 npu_workflow_demo/step3_test_without_calibration.py
+```
+
+* **💡 작동 원리:** 원본 PyTorch와 변환된 ONNX 모델에 동일한 정렬 크롭 이미지(`aligned_sample_1.jpg`)를 주입하여 임베딩을 추출하고, 캘리브레이션 전 FP32 모델 변환이 100.0%(`Cosine Sim > 0.9999`) 일치하는지 증명합니다.
+* **🛑 [Step 3 주의할 점 (전처리 규격의 차이)]**
+  1. **⚠️ FP32 모델 전용 전처리 (`CHW float32 정규화`)**:
+     NPU 모델(`.dxnn`)은 `NHWC uint8`을 받지만, 캘리브레이션을 거치지 않은 순수 FP32 ONNX/PyTorch 모델은 **`(img / 255.0 - 0.5) / 0.5` 정규화와 `CHW (1, 3, 112, 112)` 레이아웃**을 기대합니다. 모델 타입(FP32 vs INT8)에 맞는 전처리 함수(`_preprocess_fp32`)를 사용해야 합니다.
 
 ---
 
