@@ -2,10 +2,10 @@ import os
 import sys
 import torch
 
-# Add face_alignment to path to load the backbone modules
+# Add project root to path to load the backbone modules
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
-sys.path.insert(0, os.path.join(project_dir, 'face_alignment'))
+sys.path.insert(0, project_dir)
 
 from backbones import get_model
 
