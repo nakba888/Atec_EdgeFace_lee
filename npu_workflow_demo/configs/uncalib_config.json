@@ -1,0 +1,30 @@
+{
+    "model_type": "ONNX",
+    "model_path": "models/edgeface_xs_gamma_06.onnx",
+    "output_path": "models/edgeface_xs_uncalibrated.dxnn",
+    "input_names": [
+        "input.1"
+    ],
+    "output_names": [
+        "output"
+    ],
+    "preprocessing": {
+        "mean": [
+            127.5,
+            127.5,
+            127.5
+        ],
+        "std": [
+            127.5,
+            127.5,
+            127.5
+        ],
+        "swap_rb": true,
+        "scale": 1.0
+    },
+    "calibration": {
+        "calibration_dataset": "/home/jarvis/jarvis/Atec_EdgeFace_lee/npu_workflow_demo/test_images",
+        "calibration_num": 1,
+        "quantization_type": "INT8"
+    }
+}
