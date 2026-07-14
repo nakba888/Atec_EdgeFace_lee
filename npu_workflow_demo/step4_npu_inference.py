@@ -27,8 +27,15 @@ def run_inference(model_path, image_path):
     try:
         ie = InferenceEngine(model_path)
         print("✅ 엔진 로드 완료")
-        print(f"   예상 입력 차원 (HWC/CHW): {ie.input_size()}")
-        print(f"   출력 정밀도 타입: {ie.output_dtype()}")
+        if hasattr(ie, 'get_input_size'):
+            print(f"   예상 입력 차원 (HWC/CHW): {ie.get_input_size()}")
+        else:
+            print(f"   예상 입력 차원 (HWC/CHW): {ie.input_size()}")
+            
+        if hasattr(ie, 'get_output_tensors_info'):
+            print(f"   출력 텐서 정보: {ie.get_output_tensors_info()}")
+        else:
+            print(f"   출력 정밀도 타입: {ie.output_dtype()}")
     except Exception as e:
         print(f"❌ 엔진 로드 실패: {e}")
         return
