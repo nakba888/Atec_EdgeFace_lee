@@ -83,7 +83,14 @@ def run_inference(model_path, image_path):
     print(f"   {embedding[:10]}")
 
 if __name__ == "__main__":
-    dxnn_path = os.path.join(project_dir, "checkpoints", "edgeface_xs_gamma_06.dxnn")
-    test_img = os.path.join(project_dir, "test01", "lena.jpg")
+    # 1. DXNN 모델 경로: npu_workflow_demo/models 내부를 우선 참조
+    dxnn_path = os.path.join(script_dir, "models", "edgeface_xs_gamma_06.dxnn")
+    if not os.path.exists(dxnn_path):
+        dxnn_path = os.path.join(project_dir, "checkpoints", "edgeface_xs_gamma_06.dxnn")
+        
+    # 2. 테스트 이미지 경로: npu_workflow_demo/test_images 내부를 우선 참조
+    test_img = os.path.join(script_dir, "test_images", "lena.jpg")
+    if not os.path.exists(test_img):
+        test_img = os.path.join(project_dir, "test01", "lena.jpg")
     
     run_inference(dxnn_path, test_img)

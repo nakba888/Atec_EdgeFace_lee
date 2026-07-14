@@ -72,7 +72,7 @@ def export_to_onnx(pytorch_model_path, onnx_output_path):
 ### 1) Calibration 데이터셋 준비
 - 모델의 정밀도를 대표할 수 있는 다양한 이미지 **100장 내외**를 준비합니다.
 - 이미지는 모델의 입력 규격에 맞게 전처리(예: 112x112 크롭 및 리사이즈)된 상태여야 합니다.
-- 이 이미지들을 특정 폴더(예: `npu_calibration/calibration_dataset/`)에 몰아넣습니다.
+- 이 이미지들을 특정 폴더(예: `npu_workflow_demo/calibration_dataset/`)에 몰아넣습니다.
 
 ### 2) 설정 파일 작성 (`calibration_config.json`)
 아래와 같이 입력 정보, 양자화 알고리즘, 보정용 데이터셋 경로가 적힌 JSON 파일을 생성합니다.
@@ -85,7 +85,7 @@ def export_to_onnx(pytorch_model_path, onnx_output_path):
     "input_dtype": "float32"
   },
   "calibration_info": {
-    "calibration_dataset_dir": "npu_calibration/calibration_dataset",
+    "calibration_dataset_dir": "npu_workflow_demo/calibration_dataset",
     "calibration_num": 100,
     "calibration_method": "ema",
     "preprocessing": {
@@ -112,9 +112,9 @@ def export_to_onnx(pytorch_model_path, onnx_output_path):
 
 ```bash
 dx_compiler \
-    --model checkpoints/edgeface_xs_gamma_06.onnx \
-    --config npu_calibration/calibration_config_edgeface.json \
-    --output checkpoints/edgeface_xs_gamma_06.dxnn \
+    --model npu_workflow_demo/models/edgeface_xs_gamma_06.onnx \
+    --config npu_workflow_demo/configs/calibration_config_edgeface_xs_gamma_06.json \
+    --output npu_workflow_demo/models/edgeface_xs_gamma_06.dxnn \
     --target npu \
     --optimize
 ```
@@ -125,7 +125,7 @@ dx_compiler \
 - `--target npu`: 타겟 칩셋 디바이스 (NPU)로 지정
 - `--optimize`: NPU의 하드웨어 특성에 맞춰 가중치를 최적화 배치함
 
-이 명령어의 실행이 완료되면 최종적으로 `edgeface_xs_gamma_06.dxnn` 파일이 생성됩니다. 이 파일을 **라즈베리파이 보드**에 옮겨놓습니다.
+이 명령어의 실행이 완료되면 최종적으로 `npu_workflow_demo/models/edgeface_xs_gamma_06.dxnn` 파일이 생성됩니다. 이 파일을 **라즈베리파이 보드**에 옮겨놓습니다.
 
 ---
 
@@ -149,8 +149,8 @@ except ImportError:
     sys.exit(1)
 
 def run_npu_inference():
-    model_path = "checkpoints/edgeface_xs_gamma_06.dxnn"
-    image_path = "test01/lena.jpg"
+    model_path = "npu_workflow_demo/models/edgeface_xs_gamma_06.dxnn"
+    image_path = "npu_workflow_demo/test_images/lena.jpg"
     
     # 2. InferenceEngine에 DXNN 모델 파일 로드하여 NPU 구동 엔진 생성
     print("Loading DXNN model onto NPU...")

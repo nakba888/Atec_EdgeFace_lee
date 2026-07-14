@@ -13,7 +13,7 @@ def generate_config():
         "input_dtype": "float32"
       },
       "calibration_info": {
-        "calibration_dataset_dir": "npu_calibration/calibration_dataset",
+        "calibration_dataset_dir": "npu_workflow_demo/calibration_dataset",
         "calibration_num": 100,
         "calibration_method": "ema",
         "preprocessing": {
@@ -25,7 +25,8 @@ def generate_config():
       }
     }
     
-    output_path = os.path.join(project_dir, "npu_calibration", "calibration_config_edgeface_xs_gamma_06.json")
+    # 설정 파일(JSON)을 npu_workflow_demo/configs 폴더 안에 저장
+    output_path = os.path.join(script_dir, "configs", "calibration_config_edgeface_xs_gamma_06.json")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
     with open(output_path, "w", encoding="utf-8") as f:
@@ -35,9 +36,9 @@ def generate_config():
     print("\n[안내] 호스트 PC 또는 컴파일 서버에서 아래 명령을 실행하여 .dxnn 파일을 컴파일할 수 있습니다:")
     print("=" * 85)
     print(f"dx_compiler \\")
-    print(f"    --model checkpoints/edgeface_xs_gamma_06.onnx \\")
-    print(f"    --config npu_calibration/calibration_config_edgeface_xs_gamma_06.json \\")
-    print(f"    --output checkpoints/edgeface_xs_gamma_06.dxnn \\")
+    print(f"    --model npu_workflow_demo/models/edgeface_xs_gamma_06.onnx \\")
+    print(f"    --config npu_workflow_demo/configs/calibration_config_edgeface_xs_gamma_06.json \\")
+    print(f"    --output npu_workflow_demo/models/edgeface_xs_gamma_06.dxnn \\")
     print(f"    --target npu \\")
     print(f"    --optimize")
     print("=" * 85)

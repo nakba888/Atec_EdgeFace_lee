@@ -50,10 +50,15 @@ def convert_pytorch_to_onnx(pytorch_path, onnx_path, model_name="edgeface_xs_gam
         return False
 
 if __name__ == "__main__":
-    pt_model = os.path.join(project_dir, "checkpoints", "edgeface_xs_gamma_06.pt")
-    out_onnx = os.path.join(project_dir, "checkpoints", "edgeface_xs_gamma_06.onnx")
+    # 원본 pt 모델 로드 (npu_workflow_demo/models 내에 있으면 우선 로드, 없으면 프로젝트 루트 checkpoints에서 로드)
+    pt_model = os.path.join(script_dir, "models", "edgeface_xs_gamma_06.pt")
+    if not os.path.exists(pt_model):
+        pt_model = os.path.join(project_dir, "checkpoints", "edgeface_xs_gamma_06.pt")
+        
+    # 출력 ONNX 모델은 npu_workflow_demo/models 폴더 내부에 저장하여 관리
+    out_onnx = os.path.join(script_dir, "models", "edgeface_xs_gamma_06.onnx")
     
-    # checkpoints 폴더 생성 (없을 경우)
+    # npu_workflow_demo/models 폴더 생성
     os.makedirs(os.path.dirname(out_onnx), exist_ok=True)
     
     convert_pytorch_to_onnx(pt_model, out_onnx)
