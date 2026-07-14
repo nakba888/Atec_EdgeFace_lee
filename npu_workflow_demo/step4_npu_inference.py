@@ -45,12 +45,14 @@ def run_inference(model_path, image_path):
     img = cv2.imread(image_path)
     resized = cv2.resize(img, (112, 112))
     
-    # 3. HWC -> CHW 포맷 변환 및 배치(Batch) 차원 추가
-    # 주의: 2단계 calibration_config.json에서 "swap_rb": true로 설정하여 컴파일했기 때문에,
-    # NPU 하드웨어 내부에서 BGR -> RGB 채널 스왑과 정규화가 자동으로 수행됩니다.
-    # 따라서 파이썬 코드에서 cvtColor(BGR2RGB)나 /255.0 등을 하지 않고 BGR uint8 원본 그대로 주입해야 합니다!
-    chw = np.transpose(resized, (2, 0, 1))
-    input_tensor = np.expand_dims(chw, axis=0).astype(np.uint8)
+    # BGR -> RGB 변환
+    rgb_img = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+    
+    # 3. float32 정규화 및 HWC -> CHW 포맷 변환 (기존 checkpoints/edgeface_xs_gamma_06.dxnn 호환 규격)
+    float_img = rgb_img.astype(np.float32) / 255.0
+    normalized = (float_img - 0.5) / 0.5
+    chw = np.transpose(normalized, (2, 0, 1))
+    input_tensor = np.expand_dims(chw, axis=0).astype(np.float32)
     
     # NPU 연산 가속을 위해 연속 메모리(C-contiguous) 형식으로 보정
     input_tensor = np.ascontiguousarray(input_tensor)
