@@ -47,6 +47,16 @@ def check_compiler_exists():
         if os.path.exists(abs_path) and os.access(abs_path, os.X_OK):
             cmd_name = "dx_compiler" if "dx_compiler" in abs_path else "dx-com"
             return cmd_name, abs_path
+
+    # 3. /home/dxdemo/dx-all-suite 디렉토리 내부 재귀적 자동 탐색 (폴더가 존재할 경우)
+    suite_dir = "/home/dxdemo/dx-all-suite"
+    if os.path.exists(suite_dir):
+        for root, dirs, files in os.walk(suite_dir):
+            for file_name in files:
+                if file_name in ["dx_compiler", "dx-com"]:
+                    full_path = os.path.join(root, file_name)
+                    if os.access(full_path, os.X_OK):
+                        return file_name, full_path
             
     return None, None
 
