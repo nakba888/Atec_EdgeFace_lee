@@ -121,9 +121,20 @@ if __name__ == "__main__":
     if not os.path.exists(dxnn_path):
         dxnn_path = os.path.join(project_dir, "checkpoints", "edgeface_xs_gamma_06.dxnn")
         
-    img_path = os.path.join(script_dir, "test_images", "lena.jpg")
-    if not os.path.exists(img_path):
-        img_path = os.path.join(project_dir, "test01", "lena.jpg")
+    # 안면 인식 전용으로 112x112 크롭/정렬(Aligned)된 진짜 얼굴 이미지 우선 참조
+    img_paths = [
+        os.path.join(project_dir, "npu_calibration", "aligned_faces_calibration", "aligned_0000.jpg"),
+        os.path.join(project_dir, "npu_calibration", "aligned_faces_calibration", "aligned_0001.jpg"),
+        os.path.join(project_dir, "npu_calibration", "aligned_faces_calibration", "aligned_0002.jpg"),
+        os.path.join(script_dir, "test_images", "lena.jpg"),
+        os.path.join(project_dir, "test01", "lena.jpg")
+    ]
+    
+    # 존재하는 이미지 필터링
+    valid_images = [p for p in img_paths if os.path.exists(p)]
+    if not valid_images:
+        print("❌ 테스트할 이미지를 찾을 수 없습니다.")
+        sys.exit(1)
         
     if not os.path.exists(pt_path):
         print(f"❌ PyTorch 모델을 찾을 수 없습니다: {pt_path}")
@@ -131,27 +142,43 @@ if __name__ == "__main__":
     if not os.path.exists(dxnn_path) and has_dx_engine:
         print(f"❌ DXNN 모델을 찾을 수 없습니다: {dxnn_path}")
         sys.exit(1)
-    if not os.path.exists(img_path):
-        print(f"❌ 테스트 이미지를 찾을 수 없습니다: {img_path}")
-        sys.exit(1)
         
     print(f"\n🚀 [Step 5] 원본 PyTorch 모델 vs DeepX NPU 모델 정밀도 비교 검증 시작")
-    print(f"   테스트 이미지: {img_path}\n")
     
-    # 공통 이미지 읽기 및 전처리 (112x112 리사이즈 + RGB 변환)
-    img = cv2.imread(img_path)
-    resized = cv2.resize(img, (112, 112))
-    rgb_img = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-    
-    # 1. PyTorch 임베딩 추출 (PyTorch는 float32 정규화 RGB 이미지 입력)
-    pt_emb = get_pytorch_embedding(pt_path, rgb_img)
-    
-    # 2. NPU 임베딩 추출 및 비교 (기존 dxnn 호환 float32 정규화 RGB 이미지 입력)
-    if has_dx_engine:
-        npu_emb = get_npu_embedding(dxnn_path, rgb_img)
-        if npu_emb is not None:
-            compare_embeddings(pt_emb, npu_emb)
+    # 1. PyTorch 모델 한번만 로드 (배치 테스트 효율화)
+    print(f"1. PyTorch 원본 모델(FP32) 로드: {pt_path}...")
+    pt_model = get_model("edgeface_xs_gamma_06")
+    checkpoint = torch.load(pt_path, map_location=device)
+    if 'state_dict' in checkpoint:
+        pt_model.load_state_dict(checkpoint['state_dict'])
     else:
-        print("\n⚠️ NPU 환경이 아니어서 PyTorch 추출 결과만 확인했습니다.")
-        print(f"   [PyTorch FP32 첫 10개 값]: {pt_emb[:10].round(6)}")
-        print("   👉 NPU 비교를 완료하려면 라즈베리파이에서 이 스크립트를 실행해 주세요!\n")
+        pt_model.load_state_dict(checkpoint)
+    pt_model.eval()
+    
+    # 여러 정렬 이미지에 대해 연속 검증
+    for idx, img_path in enumerate(valid_images[:3]):
+        print("\n" + "#" * 75)
+        print(f" ▶ [테스트 {idx+1}] 이미지: {os.path.basename(img_path)}")
+        print("#" * 75)
+        
+        bgr_img = cv2.imread(img_path)
+        resized_bgr = cv2.resize(bgr_img, (112, 112))
+        resized_rgb = cv2.cvtColor(resized_bgr, cv2.COLOR_BGR2RGB)
+        
+        # PyTorch 임베딩 추출
+        float_img = resized_rgb.astype(np.float32) / 255.0
+        normalized = (float_img - 0.5) / 0.5
+        chw = np.transpose(normalized, (2, 0, 1))
+        input_tensor = torch.tensor(chw).unsqueeze(0).to(device)
+        with torch.no_grad():
+            pt_emb = pt_model(input_tensor).cpu().numpy().flatten()
+            pt_emb = pt_emb / np.linalg.norm(pt_emb)
+        
+        # NPU 임베딩 추출 및 비교
+        if has_dx_engine:
+            npu_emb = get_npu_embedding(dxnn_path, resized_rgb)
+            if npu_emb is not None:
+                compare_embeddings(pt_emb, npu_emb)
+        else:
+            print("\n⚠️ NPU 환경이 아니어서 PyTorch 추출 결과만 확인했습니다.")
+            print(f"   [PyTorch FP32 첫 10개 값]: {pt_emb[:10].round(6)}")
