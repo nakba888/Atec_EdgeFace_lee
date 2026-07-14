@@ -145,8 +145,11 @@ if __name__ == "__main__":
         
     print(f"\n🚀 [Step 5] 원본 PyTorch 모델 vs DeepX NPU 모델 정밀도 비교 검증 시작")
     
+    # 디바이스 설정
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    
     # 1. PyTorch 모델 한번만 로드 (배치 테스트 효율화)
-    print(f"1. PyTorch 원본 모델(FP32) 로드: {pt_path}...")
+    print(f"1. PyTorch 원본 모델(FP32) 로드: {pt_path} (Device: {device})...")
     pt_model = get_model("edgeface_xs_gamma_06")
     checkpoint = torch.load(pt_path, map_location=device)
     if 'state_dict' in checkpoint:
