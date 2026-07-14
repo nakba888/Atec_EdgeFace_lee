@@ -44,7 +44,7 @@ def get_pytorch_embedding(pt_path, rgb_img):
     embedding = embedding / np.linalg.norm(embedding)  # L2 Normalize
     return embedding
 
-def get_npu_embedding(dxnn_path, rgb_img):
+def get_npu_embedding(dxnn_path, bgr_img):
     """DeepX NPU 모델(INT8 양자화)을 사용하여 얼굴 임베딩 벡터 추출"""
     if not has_dx_engine:
         return None
@@ -52,8 +52,8 @@ def get_npu_embedding(dxnn_path, rgb_img):
     print(f"2. DeepX NPU 모델(DXNN) 로드: {dxnn_path}...")
     ie = InferenceEngine(dxnn_path)
     
-    # NPU 전처리: 컴파일 시 정규화(mean/std 127.5)가 포함되었으므로 가공 없는 uint8 그대로 주입
-    chw = np.transpose(rgb_img, (2, 0, 1))
+    # NPU 전처리: 컴파일 시 "swap_rb": true, 정규화(mean/std 127.5)가 포함되었으므로 가공 없는 BGR uint8 그대로 주입
+    chw = np.transpose(bgr_img, (2, 0, 1))
     input_tensor = np.expand_dims(chw, axis=0).astype(np.uint8)
     input_tensor = np.ascontiguousarray(input_tensor)
     
@@ -137,17 +137,17 @@ if __name__ == "__main__":
     print(f"\n🚀 [Step 5] 원본 PyTorch 모델 vs DeepX NPU 모델 정밀도 비교 검증 시작")
     print(f"   테스트 이미지: {img_path}\n")
     
-    # 공통 이미지 읽기 및 전처리 (112x112 리사이즈 + RGB 변환)
-    img = cv2.imread(img_path)
-    resized = cv2.resize(img, (112, 112))
-    rgb_img = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+    # 공통 이미지 읽기 및 리사이즈 (112x112)
+    bgr_img = cv2.imread(img_path)
+    resized_bgr = cv2.resize(bgr_img, (112, 112))
+    resized_rgb = cv2.cvtColor(resized_bgr, cv2.COLOR_BGR2RGB)
     
-    # 1. PyTorch 임베딩 추출
-    pt_emb = get_pytorch_embedding(pt_path, rgb_img)
+    # 1. PyTorch 임베딩 추출 (PyTorch는 RGB 이미지 입력)
+    pt_emb = get_pytorch_embedding(pt_path, resized_rgb)
     
-    # 2. NPU 임베딩 추출 및 비교
+    # 2. NPU 임베딩 추출 및 비교 (NPU는 컴파일 시 swap_rb=True 설정되었으므로 BGR 이미지 입력)
     if has_dx_engine:
-        npu_emb = get_npu_embedding(dxnn_path, rgb_img)
+        npu_emb = get_npu_embedding(dxnn_path, resized_bgr)
         if npu_emb is not None:
             compare_embeddings(pt_emb, npu_emb)
     else:
