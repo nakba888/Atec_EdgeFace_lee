@@ -123,9 +123,10 @@ if __name__ == "__main__":
         
     # 안면 인식 전용으로 112x112 크롭/정렬(Aligned)된 진짜 얼굴 이미지 우선 참조
     img_paths = [
+        os.path.join(script_dir, "test_images", "aligned_sample_1.jpg"),
+        os.path.join(script_dir, "test_images", "aligned_sample_2.jpg"),
+        os.path.join(script_dir, "test_images", "aligned_sample_3.jpg"),
         os.path.join(project_dir, "npu_calibration", "aligned_faces_calibration", "aligned_0000.jpg"),
-        os.path.join(project_dir, "npu_calibration", "aligned_faces_calibration", "aligned_0001.jpg"),
-        os.path.join(project_dir, "npu_calibration", "aligned_faces_calibration", "aligned_0002.jpg"),
         os.path.join(script_dir, "test_images", "lena.jpg"),
         os.path.join(project_dir, "test01", "lena.jpg")
     ]
