@@ -24,28 +24,32 @@ os.makedirs(models_dir, exist_ok=True)
 
 
 def check_compiler_exists():
-    """DeepX NPU 컴파일러(dx_compiler 또는 dx-com) 존재 여부 체크 (라즈베리파이 dx-all-suite 포함)"""
+    """DeepX NPU 컴파일러(dx_compiler 또는 dxcom/dx-com) 존재 여부 체크"""
     # 1. PATH에서 먼저 검색
-    for cmd in ["dx_compiler", "dx-com", "dx-compiler"]:
+    for cmd in ["dxcom", "dx_compiler", "dx-com", "dx-compiler"]:
         path = shutil.which(cmd)
         if path:
             return cmd, path
             
-    # 2. 라즈베리파이 dxdemo dx-all-suite 및 사용자 로컬 경로 자동 탐색
+    # 2. 라즈베리파이 dxdemo dx-all-suite 및 사용자 로컬/가상환경 경로 자동 탐색
     custom_paths = [
+        "/home/jarvis/.virtualenvs/venv-dx-compiler/bin/dxcom",
+        "/home/jarvis/.virtualenvs/venv-dx-compiler/bin/dx_compiler",
         "/home/dxdemo/dx-all-suite/dx-compiler/bin/dx_compiler",
         "/home/dxdemo/dx-all-suite/dx-compiler/bin/dx-com",
         "/home/dxdemo/dx-all-suite/bin/dx-com",
         "/home/dxdemo/dx-all-suite/dx-compiler/dx_compiler",
         "/home/dxdemo/dx-all-suite/dx-compiler/dx-com",
+        "/home/dxdemo/.local/bin/dxcom",
         "/home/dxdemo/.local/bin/dx-com",
         "/home/dxdemo/.local/bin/dx_compiler",
+        "/usr/local/bin/dxcom",
         "/usr/local/bin/dx-com",
         "/usr/local/bin/dx_compiler"
     ]
     for abs_path in custom_paths:
         if os.path.exists(abs_path) and os.access(abs_path, os.X_OK):
-            cmd_name = "dx_compiler" if "dx_compiler" in abs_path else "dx-com"
+            cmd_name = "dx_compiler" if "dx_compiler" in abs_path else "dxcom"
             return cmd_name, abs_path
 
     # 3. /home/dxdemo/dx-all-suite 디렉토리 내부 재귀적 자동 탐색 (폴더가 존재할 경우)
@@ -53,7 +57,7 @@ def check_compiler_exists():
     if os.path.exists(suite_dir):
         for root, dirs, files in os.walk(suite_dir):
             for file_name in files:
-                if file_name in ["dx_compiler", "dx-com"]:
+                if file_name in ["dxcom", "dx_compiler", "dx-com"]:
                     full_path = os.path.join(root, file_name)
                     if os.access(full_path, os.X_OK):
                         return file_name, full_path
@@ -134,12 +138,17 @@ def main():
     # 1. 정식 캘리브레이션 완료 모델 (Calibrated DXNN)
     calib_config = os.path.join(configs_dir, "calibration_config.json")
     if not os.path.exists(calib_config):
-        print("\n ℹ️ `calibration_config.json`이 없어 자동 생성을 시도합니다...")
-        try:
-            import step2_prepare_calibration as calib_script
-            calib_script.main()
-        except Exception:
-            pass
+        historical_config = os.path.join(project_dir, "npu_calibration", "calibration_config_edgeface.json")
+        if os.path.exists(historical_config):
+            calib_config = historical_config
+            print(f"\n ℹ️ 원본 캘리브레이션 JSON 설정 감지 및 연동: {calib_config}")
+        else:
+            print("\n ℹ️ `calibration_config.json`이 없어 자동 생성을 시도합니다...")
+            try:
+                import step2_prepare_calibration as calib_script
+                calib_script.main()
+            except Exception:
+                pass
     calib_dxnn = os.path.join(models_dir, "edgeface_xs_gamma_06.dxnn")
     run_or_print_compile(
         compiler_cmd, compiler_path, onnx_path, calib_config, calib_dxnn, 
